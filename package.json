@@ -1,0 +1,37 @@
+{
+  "name": "videoCTRL",
+  "version": "0.0.0",
+  "description": "Web-based realtime Media Composer",
+  "main": "server.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "nodejs-websocket": "^1.2.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/peternerlich/videoCTRL.git"
+  },
+  "keywords": [
+    "media",
+    "video",
+    "ctrl",
+    "realtime",
+    "live",
+    "audio",
+    "text",
+    "image",
+    "composer"
+  ],
+  "author": "Peter Nerlich <peter.nerlich@googlemail.com> (http://nerlpet.enif.uberspace.de)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/peternerlich/videoCTRL/issues"
+  }
+}
