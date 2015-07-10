@@ -1,6 +1,6 @@
 var http = require('http');
 var url = require('url');
-var ws = require('nodejs-websocket');
+var Primus = require('primus');
 var fs = require('fs');
 var path = require('path');
 
@@ -112,7 +112,7 @@ var db = {
 db.stage.default = 'st0001';
 
 
-http.createServer(function (req, res) {
+var server = http.createServer(function (req, res) {
 	console.log('→ '+req.url);
 	if (req.url.match(/^\/admin/)) {
 		if (req.url.match(/^\/admin\/main.css/)) {
@@ -148,10 +148,36 @@ http.createServer(function (req, res) {
 		res.writeHead(500, {"Content-Type": "text/html"});
 		res.end('<!DOCTYPE html><html><head><title></title><style>* {background:#000;color:#000;}</style></head><body><p style="color:#333;">ERROR 500: INTERNAL SERVER ERROR</p></body></html>');
 	}
-}).listen(8080);
-console.log('HTTP server on port 8080');
+});
 
-var server = ws.createServer(function (connection) {
+var primus = new Primus(server, {
+	pathname: '/primus'
+});
+
+primus.on('connection', function (spark) {
+	/*console.log('connection has the following headers', spark.headers);
+	console.log('connection was made from', spark.address);
+	console.log('connection id', spark.id);*/
+
+	spark.on('data', function message(msg) {
+		console.log('# '+spark.id+' sent '+msg);
+
+		msg = JSON.parse(msg);
+		if (msg.action == 'deviceinfo') {
+			devices.push({
+				msg.data
+			});
+		}
+	});
+	//push();
+});
+
+primus.on('disconnection', function (spark) {
+// the spark that disconnected
+});
+
+
+/*.createServer(function (connection) {
 	var id = devices.push({
 		id: null,
 		document: {
@@ -194,3 +220,8 @@ function broadcast(str) {
 		connection.sendText(str)
 	});
 }
+*/
+
+server.listen(8080, function() {
+	console.log('server on port 8080');
+});

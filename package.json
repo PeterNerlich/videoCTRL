@@ -7,7 +7,8 @@
     "test": "test"
   },
   "dependencies": {
-    "nodejs-websocket": "^1.2.1"
+    "primus": "^3.1.1",
+    "ws": "^0.7.2"
   },
   "devDependencies": {},
   "scripts": {
