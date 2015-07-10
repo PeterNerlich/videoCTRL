@@ -158,22 +158,39 @@ primus.on('connection', function (spark) {
 	/*console.log('connection has the following headers', spark.headers);
 	console.log('connection was made from', spark.address);
 	console.log('connection id', spark.id);*/
+	var id = null;
 
 	spark.on('data', function message(msg) {
 		console.log('# '+spark.id+' sent '+msg);
 
 		msg = JSON.parse(msg);
 		if (msg.action == 'deviceinfo') {
-			devices.push({
-				msg.data
-			});
+			if (id === null) {
+				id = devices.push({
+					spark: spark,
+					deviceinfo: msg.data,
+					adjust: 0, // 0; contain, 1: fill, 2: stretch, 3: 1:1
+					stage: db.stage.default.id
+				}) -1;
+			} else {
+				devices[id].spark = spark;
+				devices[id].deviceinfo = msg.data;
+			}
 		}
 	});
-	//push();
 });
 
 primus.on('disconnection', function (spark) {
-// the spark that disconnected
+	var id = null;
+	for (var i = 0; i < devices.length; i++) {
+		if(devices[i].spark.id == spark.id) {
+			id = i;
+			break;
+		}
+	}
+	if (id !== null) {		
+		console.log('# '+spark.id+' disconnected');
+	}
 });
 
 
@@ -190,9 +207,7 @@ primus.on('disconnection', function (spark) {
 			offsetWidth: null,
 			offsetTop: null,
 			offsetLeft: null
-		},
-		adjust: 0, // 0; contain, 1: fill, 2: stretch, 3: 1:1
-		stage: db.stage.default.id,
+		},,
 		connection: connection
 	})-1;
 
