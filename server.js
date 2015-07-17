@@ -34,7 +34,7 @@ var db = {
 	},
 	channel: [
 		{
-			id: 'o0001',
+			id: '#o0001',
 			object: [
 				'#o0002',
 				'#o0005'
@@ -170,8 +170,9 @@ primus.on('connection', function (spark) {
 					spark: spark,
 					deviceinfo: msg.data,
 					adjust: 0, // 0; contain, 1: fill, 2: stretch, 3: 1:1
-					stage: db.stage.default.id
+					stage: db.stage.default
 				}) -1;
+				firstSend(id);
 			} else {
 				devices[id].spark = spark;
 				devices[id].deviceinfo = msg.data;
@@ -193,49 +194,35 @@ primus.on('disconnection', function (spark) {
 	}
 });
 
-
-/*.createServer(function (connection) {
-	var id = devices.push({
-		id: null,
-		document: {
-			baseURI: null,
-			clientHeight: null,
-			clientWidth: null,
-			clientTop: null,
-			clientLeft: null,
-			offsetHeight: null,
-			offsetWidth: null,
-			offsetTop: null,
-			offsetLeft: null
-		},,
-		connection: connection
-	})-1;
-
-	connection.on('text', function (message) {
-		message = JSON.parse(message);
-		if (message.action == 'deviceinfo') {
-			devices[id].id = id;
-			devices[id].document = message.data;
-			console.log('new device '+JSON.stringify({
-				id: devices[id].id,
-				document: devices[id].document,
-				adjust: devices[id].adjust,
-				stage: devices[id].stage
-			}));
-		}
-	});
-	connection.on('close', function () {
-	});
-});
-server.listen(8081);
-console.log('Websocket server on port 8081');
-
-function broadcast(str) {
-	server.connections.forEach(function (connection) {
-		connection.sendText(str)
-	});
+function firstSend(device) {
+	send(device).wholeDb();
+	send(device).whichStage();
 }
-*/
+
+var send = (function(device) {
+	var spark = devices[device].spark;
+	console.log('init send for '+spark.id);
+	this.whichStage = function(stage) {
+		console.log('whichStage');
+		var stage = stage || devices[device].stage || db.stage.default;
+		spark.write({
+			action: 'whichStage',
+			data: stage
+		});
+	};
+	this.wholeDb = function() {
+		console.log('whole db');
+		spark.write({
+			action: 'wholeDb',
+			data: db
+		});
+	};
+	this.closeSig = function(msg) {
+		console.log('ending connection');
+		spark.end(msg);
+	};
+	return this;
+});
 
 server.listen(8080, function() {
 	console.log('server on port 8080');
