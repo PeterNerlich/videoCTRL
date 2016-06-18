@@ -78,54 +78,63 @@ window.onload = function() {
 	primus.on('data', function received(msg) {
 		console.log(msg);
 		if (msg.action == 'wholeDb') {
+			console.log('wholeDb');
 			db = msg.data;
-			update();
 		} else if (msg.action == 'whichStage') {
 			stage = msg.data;
-			update();
 		};
+		update();
 	});
 }
 
 function update() {
-	if (stage === null || db === {} || stage === null) {
+	console.log('update()');
+	if (stage === null || db === {}) {
 		return false;
 	} else {
-		$('#stage')[0].innerHTML = doScene(dbTools.getStage(stage).scene, '');
+		console.log('building tree');
+		console.log($('#stage')[0].appendChild(doScene(dbTools.getStage(stage).scene)));
+		console.log('tree built');
 		applySources($('#stage')[0]);
+		console.log('sources applied');
 
-		function doScene(id, html) {
-			var html = html || '';
-			html += '<div data-id="'+id+'" class="scene">';
+		function doScene(id) {
+			var e = document.createElement('div');
+			e.setAttribute('data-id', id);
+			e.setAttribute('class', 'scene');
 			for (var ch in dbTools.getScene(id).channel) {
-				html += doChannel(dbTools.getScene(id).channel[ch]);
+				e.appendChild(doChannel(dbTools.getScene(id).channel[ch].id), dbTools.getScene(id).channel[ch].fade);
 			}
-			html += '</div>';
-			return html;
+			return e;
 		}
-		function doChannel(id, html) {
-			var html = html || '';
-			html += '<div data-id="'+id+'" class="channel">';
+		function doChannel(id, fade) {
+			var fade = fade || 1.0;
+			var e = document.createElement('div');
+			e.setAttribute('data-id', id);
+			e.setAttribute('class', 'channel');
 			for (var obj in dbTools.getChannel(id).object) {
-				html += doObject(dbTools.getChannel(id).object[obj]);
+				e.appendChild(doObject(dbTools.getChannel(id).object[obj]));
 			}
-			html += '</div>';
-			return html;
+			return e;
 		}
-		function doObject(id, html) {
-			var html = html || '';
-			html += '<div data-id="'+id+'" class="object">';
+		function doObject(id, transform) {
+			var t = new db.schema.Transform();
+			for (var obj in transform) {
+				t[obj] = transform[obj];
+			}
+			var e = document.createElement('div');
+			e.setAttribute('data-id', id);
+			e.setAttribute('class', 'object');
 			if (dbTools.getObject(id).object === false) {
 				//applying sources after building DOM
 			} else if (dbTools.getObject(id).src === false) {
 				for (var obj in dbTools.getObject(id).object) {
-					html += doObject(dbTools.getObject(id).object[obj]);
+					e.appendChild(doObject(dbTools.getObject(id).object[obj]));
 				}
 			} else {
 				console.log('ERROR: object holds neither source nor further objects');
 			}
-			html += '</div>';
-			return html;
+			return e;
 		}
 		function applySources(e) {
 			var e = e || document.body;
@@ -148,10 +157,12 @@ function update() {
 					node.appendChild(i);
 				} else if (src.type == 'paragraph') {
 					var p = document.createElement('p');
+					p.style['color'] = '#fff';
 					p.innerText = src.content;
 					node.appendChild(p);
-				} else if (src.type == 'h3') {
-					var h = document.createElement('h3');
+				} else if (src.type == 'h1' || src.type == 'h2'|| src.type == 'h3'|| src.type == 'h4'|| src.type == 'h5') {
+					var h = document.createElement(src.type);
+					h.style['color'] = '#fff';
 					h.innerText = src.content;
 					node.appendChild(h);
 				} else {

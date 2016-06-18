@@ -22,7 +22,10 @@ var db = {
 		{
 			id: 'sc0001',
 			channel: [
-				'#o0001'
+				{
+					id: 'o0001',
+					fader: 1.0
+				}
 			]
 		}
 	],
@@ -34,10 +37,10 @@ var db = {
 	},
 	channel: [
 		{
-			id: '#o0001',
+			id: 'o0001',
 			object: [
-				'#o0002',
-				'#o0005'
+				'o0002',
+				'o0005'
 			]
 		}
 	],
@@ -49,34 +52,34 @@ var db = {
 	},
 	object: [
 		{
-			id: '#o0002',
+			id: 'o0002',
 			object: [
-				'#o0003',
-				'#o0004'
+				'o0003',
+				'o0004'
 			],
 			src: false
 		},
 		{
-			id: '#o0003',
+			id: 'o0003',
 			object: false,
-			src: '#s0001'
+			src: 's0001'
 		},
 		{
-			id: '#o0004',
+			id: 'o0004',
 			object: false,
-			src: '#s0002'
+			src: 's0002'
 		},
 		{
-			id: '#o0005',
+			id: 'o0005',
 			object: [
-				'#o0006'
+				'o0006'
 			],
 			src: false
 		},
 		{
-			id: '#o0006',
+			id: 'o0006',
 			object: false,
-			src: '#s0003'
+			src: 's0003'
 		}
 	],
 	getObject: function(id) {
@@ -87,17 +90,17 @@ var db = {
 	},
 	src: [
 		{
-			id: '#s0001',
+			id: 's0001',
 			type: 'img',
 			url: 'https://www.google.de/images/srpr/logo11w.png'
 		},
 		{
-			id: '#s0002',
+			id: 's0002',
 			type: 'paragraph',
 			content: 'TEST'
 		},
 		{
-			id: '#s0003',
+			id: 's0003',
 			type: 'h3',
 			content: 'test'
 		}
@@ -106,6 +109,28 @@ var db = {
 		for (var i = 0; i < db.src.length; i++) {
 			if (db.src[i].id == id)
 				return db.src[i];
+		}
+	},
+	schema: {
+		Transform: function() {
+			this.translate = {
+				x: 0,
+				y: 0,
+				z: 0
+			};
+			this.scale = {
+				x: 0,
+				y: 0,
+				z: 0
+			};
+			this.rotate = {
+				x: 0,
+				y: 0,
+				z: 0
+			};
+			this.perspective = null;
+
+			return this;
 		}
 	}
 };
@@ -144,6 +169,10 @@ var server = http.createServer(function (req, res) {
 			stream.on('error', function (error) {console.log(error); res.writeHead(500, {"Content-Type": "text/html"}); res.end('<!DOCTYPE html><html><head><title></title><style>* {background:#000;color:#000;}</style></head><body></body></html>');});
 			stream.on('readable', function () {stream.pipe(res);});
 		}
+	} else if (req.url.match(/^\/jquery.min.js/)) {
+		var stream = fs.createReadStream(path.join(__dirname, 'js/jquery-1.11.3.js'));
+		stream.on('error', function (error) {console.log(error); res.writeHead(500, {"Content-Type": "text/html"}); res.end('<!DOCTYPE html><html><head><title></title><style>* {background:#000;color:#000;}</style></head><body><p style="color:#555;">ERROR 500: INTERNAL SERVER ERROR</p></body></html>');});
+		stream.on('readable', function () {stream.pipe(res);});
 	} else {
 		res.writeHead(500, {"Content-Type": "text/html"});
 		res.end('<!DOCTYPE html><html><head><title></title><style>* {background:#000;color:#000;}</style></head><body><p style="color:#333;">ERROR 500: INTERNAL SERVER ERROR</p></body></html>');
