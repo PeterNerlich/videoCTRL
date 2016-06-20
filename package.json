@@ -7,8 +7,9 @@
     "test": "test"
   },
   "dependencies": {
-    "primus": "^3.1.1",
-    "ws": "^0.7.2"
+    "primus": "^5.2.2",
+    "sqlite3": "^3.1.4",
+    "ws": "^1.1.0"
   },
   "devDependencies": {},
   "scripts": {
@@ -30,8 +31,8 @@
     "image",
     "composer"
   ],
-  "author": "Peter Nerlich <peter.nerlich@googlemail.com> (http://nerlpet.enif.uberspace.de)",
-  "license": "ISC",
+  "author": "Peter Nerlich <peter.nerlich@googlemail.com> (peter.nerlich4u.de/aboutme)",
+  "license": "AGPL 4.0",
   "bugs": {
     "url": "https://github.com/peternerlich/videoCTRL/issues"
   }

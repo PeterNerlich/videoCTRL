@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Stage</title>
+	<link rel="stylesheet" href="scenes/stage.css">
+</head>
+<body>
+
+<div id="background"></div>
+<div id="stage"></div>
+
+
+<script src="./primus/primus.js"></script>
+<script>
+	var background = document.querySelector('#background');
+	var stage = document.querySelector('#stage');
+
+	var primus = Primus.connect('/primus', {});
+	console.log('connected');
+
+	primus.on('data', function(msg) {
+		if (msg.type == 'scene') {
+			//var html = String.fromCharCode.apply(null, new Uint16Array(msg.data.scene.data));
+			//console.log(JSON.stringify(html));
+			stage.innerHTML = msg.data.scene; //html;
+			stage.style.width = msg.data.stage.width;
+			stage.style.height = msg.data.stage.height;
+		} else if (msg.type == 'overlay') {
+			console.log('got overlay ['+msg.data+']');
+			if (msg.data == 'blackout') {
+				document.body.classList.remove('whiteout', 'blankout');
+				document.body.classList.add('blackout');
+			} else if (msg.data == 'whiteout') {
+				document.body.classList.remove('blackout', 'blankout');
+				document.body.classList.add('whiteout');
+			} else if (msg.data == 'blankout') {
+				document.body.classList.remove('blackout', 'whiteout');
+				document.body.classList.add('blankout');
+			} else if (msg.data == null) {
+				document.body.classList.remove('blackout', 'whiteout', 'blankout');
+			}
+		} else {
+			console.warn('unknown msg '+JSON.stringify(msg));
+		}
+	});
+
+	window.onresize = function() {
+		var sw = document.body.offsetWidth / stage.offsetWidth;
+		var sh = document.body.offsetHeight / stage.offsetHeight;
+		stage.style.zoom = sw < sh ? sw : sh;
+	};
+	window.onresize();
+</script>
+
+</body>
+</html>
