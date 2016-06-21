@@ -3,37 +3,127 @@ var Primus = require('primus');
 var fs = require('fs');
 var path = require('path');
 
-
-var stage = {
-	width: 400,
-	height: 300
+var settings = {
+	stage: {
+		width: 400,
+		height: 300,
+		overlay: null,
+		scene: 0,
+		scenes: [
+			'001'
+		]
+	},
+	gui: {
+		children: [
+			{
+				type: 'group',
+				title: 'stage nav',
+				class: 'bordered labeled',
+				children: [
+					{
+						type: 'group',
+						title: 'overlay',
+						class: 'horizontal',
+						children: [
+							{
+								type: 'button',
+								title: 'Blackout',
+								signal: 'blackout'
+							},
+							{
+								type: 'button',
+								title: 'Whiteout',
+								signal: 'whiteout'
+							},
+							{
+								type: 'button',
+								title: 'Blankout',
+								signal: 'blankout'
+							}
+						]
+					},
+					{
+						type: 'button',
+						title: 'Reload Scene',
+						signal: 'reload'
+					}
+				]
+			},
+			{
+				type: 'group',
+				title: 'scene nav',
+				class: 'bordered labeled horizontal',
+				children: [
+					{
+						type: 'button',
+						title: '←',
+						signal: 'scene-prev',
+						class: null
+					},
+					{
+						type: 'list',
+						signal: 'scene-select',
+						class: null,
+						options: [
+							'001',
+							'002',
+							'003'
+						],
+						current: 0
+					},
+					{
+						type: 'button',
+						title: '→',
+						signal: 'scene-next',
+						class: null
+					}
+				]
+			}
+		]
+	},
+	devices: []
 };
-var scene = '001';
-var overlay = null;
 
-var devices = function() {
-	var list = [];
-	var add = function(s) {
-		return list.push(s);
-	};
-	var get = function(id) {}
-	var remove = function(id) {
-		for (var i = 0; i < list.length; i++) {
-			if (id == list[i].id) {
-				list.splice(i,1);
+
+var devices = {
+	add: function(spark) {
+		settings.devices.push({
+			spark: spark,
+			type: null,
+			info: {
+				width: null,
+				height: null
+			}
+		});
+		return spark.id;
+	},
+	get: function(id) {
+		for (var i = 0; i < settings.devices.length; i++) {
+			if (id == settings.devices[i].spark.id) {
+				return settings.devices[i];
+			}
+		}
+		return false;
+	},
+	remove: function(id) {
+		for (var i = 0; i < settings.devices.length; i++) {
+			if (id == settings.devices[i].spark.id) {
+				settings.devices.splice(i,1);
 				return true;
 			}
 		}
-	};
-
-	return {
-		list: list,
-		add: add,
-		get: get,
-		remove: remove
-	};
+		return false;
+	},
+	broadcast: function(msg, type) {
+		for (var i = 0; i < settings.devices.length; i++) {
+			if (!type || type == settings.devices[i].type) {
+				settings.devices[i].spark.write(msg);
+			}
+		}
+		return i;
+	}
 };
-devices = new devices();
+
 
 var server = http.createServer(function(req, res) {
 	if ((file = /^\/admin(\/|\/.+)?$/.exec(req.url)) !== null) {
@@ -80,11 +170,43 @@ primus.on('connection', function (spark) {
 	console.log('connected: ['+spark.id+']');
 	devices.add(spark);
 
-	send({type:'overlay',data:overlay}, spark);
-	sendScene(spark);
+//	send({type:'overlay',data:overlay}, spark);
+//	sendScene(spark);
 
 	spark.on('data', function(msg) {
-		if (typeof msg === 'object') {
+		var device = devices.get(spark.id);
+		if (device.type === null) {
+			if (msg == 'admin' || msg == 'display') {
+				device.type = msg;
+				if (device.type == 'admin') {
+					console.log('sending gui settings: '+device.spark.write({
+						type: 'gui settings',
+						data: settings.gui
+					}));
+				}
+			} else {
+				spark.write('giveinfo');
+				console.log('NULL spark ['+spark.id+']: '+JSON.stringify(msg));
+			}
+		} else {
+			if (typeof msg === 'object') {
+				switch (msg.type) {
+					case 'info':
+						device.info = msg.data;
+						break;
+					case 'gui cmd':
+						break;
+					default:
+						console.log('ignoring msg '+JSON.stringify(msg));
+				}
+			} else {
+				console.log('ignoring msg '+JSON.stringify(msg));
+			}
+		}
+
+
+return;
+/*		if (typeof msg === 'object') {
 			if (msg.type == 'update') {
 				if (msg.data) {
 					scene = msg.data.scene;
@@ -104,7 +226,9 @@ primus.on('connection', function (spark) {
 					broadcast(msg);
 				}
 			}
-		}
+		} else {
+			console.log('ignoring msg '+JSON.stringify(msg));
+		}*/
 	});
 });
 
@@ -114,19 +238,13 @@ primus.on('disconnection', function (spark) {
 });
 
 
-function broadcast(data) {
-	console.log('broadcasting '+JSON.stringify(data)+'  ('+devices.list.length+')');
-	for (var i = 0; i < devices.list.length; i++) {
-		devices.list[i].write(data);
-	}
-}
-
 function broadcastScene(data) {
 	var data = data || {scene: scene, stage: stage};
 	console.log('broadcasting scene ['+data.scene+']  ('+devices.list.length+')');
-	for (var i = 0; i < devices.list.length; i++) {
-		sendScene(devices.list[i], data);
-	}
+	devices.list.forEach(function(e,i) {
+		sendScene(e, data);
+	});
+	return true;
 }
 
 function sendScene(spark, data) {

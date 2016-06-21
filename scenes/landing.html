@@ -16,6 +16,7 @@
 	var stage = document.querySelector('#stage');
 
 	var primus = Primus.connect('/primus', {});
+	primus.write('display');
 	console.log('connected');
 
 	primus.on('data', function(msg) {

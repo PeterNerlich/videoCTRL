@@ -7,34 +7,30 @@
 </head>
 <body>
 
+<div id="gui"></div>
+
 <div id="preview">
 	<div id="background"></div>
 	<div id="stage"></div>
 </div>
 
-<h1>Admin</h1>
 
-<button id="blackout">Blackout</button>
-<button id="whiteout">Whiteout</button>
-<button id="blankout">Blankout</button>
-<br>
-<button id="reload">Reload Scene</button>
-<br>
-<h3>Change Scene</h3>
-<button id="scene-prev">←</button>
-<select id="scene-select"></select>
-<button id="scene-next">→</button>
-
-
+<script src="../admin/gui.js"></script>
 <script src="../primus/primus.js"></script>
 <script>
 	var preview = document.querySelector('#preview');
 	var background = document.querySelector('#background');
 	var stage = document.querySelector('#stage');
+	var gui = new Gui('#gui');
 
 	var primus = Primus.connect('/primus', {});
+	primus.write('admin');
+	primus.write({
+		type: 'info',
+		data: giveinfo()
+	});
 	console.log('connected');
-
+/*
 	document.querySelector('button#blackout').onclick = function(e) {
 		if (preview.classList.contains('blackout')) {
 			primus.write({type:'overlay',data:null});
@@ -58,33 +54,73 @@
 	};
 	document.querySelector('button#reload').onclick = function(e) {
 		primus.write({type:'reload'});
-	};
+	};*/
 
 	primus.on('data', function(msg) {
-		if (msg.type == 'scene') {
-			//var html = String.fromCharCode.apply(null, new Uint16Array(msg.data.scene.data));
-			//console.log(JSON.stringify(html));
-			stage.innerHTML = msg.data.scene; //html;
-			stage.width = msg.data.stage.width;
-			stage.height = msg.data.stage.height;
-		} else if (msg.type == 'overlay') {
-			console.log('got overlay ['+msg.data+']');
-			if (msg.data == 'blackout') {
-				preview.classList.remove('whiteout', 'blankout');
-				preview.classList.add('blackout');
-			} else if (msg.data == 'whiteout') {
-				preview.classList.remove('blackout', 'blankout');
-				preview.classList.add('whiteout');
-			} else if (msg.data == 'blankout') {
-				preview.classList.remove('blackout', 'whiteout');
-				preview.classList.add('blankout');
-			} else if (msg.data == null) {
-				preview.classList.remove('blackout', 'whiteout', 'blankout');
+		if (msg == 'giveinfo') {
+			primus.write('admin');
+			primus.write({
+				type: 'info',
+				data: giveinfo()
+			});
+		} else if (typeof msg === 'object') {
+			switch (msg.type) {
+				case 'stage cmd':
+					if (msg.data.width)	stage.width = msg.data.width;
+					if (msg.data.height)	stage.height = msg.data.height;
+					if (msg.data.overlay) {
+						switch (msg.data.overlay) {
+							case 'blackout':
+								preview.classList.remove('whiteout', 'blankout');
+								preview.classList.add('blackout');
+							case 'whiteout':
+								preview.classList.remove('blackout', 'blankout');
+								preview.classList.add('whiteout');
+							case 'blankout':
+								preview.classList.remove('blackout', 'whiteout');
+								preview.classList.add('blankout');
+							default:
+								preview.classList.remove('blackout', 'whiteout', 'blankout');
+						}
+					}
+					break;
+				case 'scene content':
+					stage.innerHTML = msg.data;
+					break;
+				case 'scene cmd':
+					break;
+				case 'gui settings':
+					console.log('rebuilding gui: '+gui.rebuild(msg.data));
+					break;
+				default:
+					console.warn('unknown msg '+JSON.stringify(msg));
+					break;
 			}
 		} else {
 			console.warn('unknown msg '+JSON.stringify(msg));
 		}
 	});
+
+	function giveinfo() {
+		return {
+			width: window.innerWidth,
+			height: window.innerHeight,
+			screen: {
+				width: window.screen.width,
+				height: window.screen.height,
+				availWidth: window.screen.availWidth,
+				availHeight: window.screen.availHeight,
+				availLeft: window.screen.availLeft,
+				availTop: window.screen.availTop,
+				colorDepth: window.screen.colorDepth,
+				pixelDepth: window.screen.pixelDepth,
+				orientation: {
+					angle: window.screen.orientation.angle,
+					type: window.screen.orientation.type
+				}
+			}
+		};
+	}
 
 	window.onresize = function() {
 		var sw = preview.offsetWidth / stage.offsetWidth;

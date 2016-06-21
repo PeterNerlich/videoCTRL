@@ -60,13 +60,12 @@ html, body {
 }
 
 
-
 br {
 	clear: both;
 }
 
-button, select, input[select] {
-	float: left;
+
+[data-role="button"], [data-role="list"] {
 	margin: 6px;
 	border: 2px solid #bbb;
 	border-radius: 3px;
@@ -76,16 +75,76 @@ button, select, input[select] {
 	line-height: 24px;
 }
 
-button.active {
+[data-role="button"].active {
 	margin: 4px;
 	border: 4px solid #ef5;
 	background-color: #fff;
 	color: #530;
 }
 
-select, input[select] {
+[data-role="list"] {
 	height: 30px;
 	font-size: 14px;
 	font-weight: bold;
 	color: #680;
 }
+
+[data-role="list"] option {
+	border:0;
+	font-size: 14px;
+	background-color: #555;
+	color: #ddc;
+}
+
+[data-role="list"] option[selected] {
+	font-weight: bold;
+	background-color: #444;
+	color: #dfa;
+}
+
+[data-role="list"] option:active {
+	background-color: #888;
+	color: #efc;
+}
+
+
+[data-role="group"] {
+	position: relative;
+	margin: 0;
+	padding: 0;
+}
+
+[data-role="group"].bordered {
+	margin: 6px;
+	padding: 5px;
+	border: 2px solid #bbb;
+	border-radius: 5px;
+}
+
+[data-role="group"].bordered.labeled {
+	border-top: 26px solid #999;
+	border-radius: 8px 8px 5px 5px;
+}
+
+
+[data-role="group"] > label {
+	display: none;
+}
+
+[data-role="group"].labeled > label {
+	display: inherit;
+}
+
+[data-role="group"].bordered.labeled > label {
+	display: inherit;
+	position: absolute;
+	top: -26px;
+	left: 12px;
+	font-size: 20px;
+	line-height: 26px;
+}
+
+.horizontal > * {
+/*	float: left;*/
+}
+
