@@ -15,7 +15,7 @@ var Gui = function(elem, schema) {
 		this.value = val || true;
 		var s = this;
 		this.eventHandler = function(e) {
-			return console.log(gui.trigger(s, e));
+			return gui.trigger(s, e);
 		};
 
 		return this;
@@ -92,7 +92,6 @@ var Gui = function(elem, schema) {
 				case 'list':
 					signals[id].event = 'input';
 					signals[id].value = function(e, elem) {
-						console.log('input: '+elem.value);
 						return elem.value;
 					};
 					break;
@@ -127,7 +126,7 @@ var Gui = function(elem, schema) {
 			type: 'gui cmd',
 			data: {
 				signal: signal.signal,
-				value: signal.value
+				value: sig
 			}
 		});
 	};

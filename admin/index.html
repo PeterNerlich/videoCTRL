@@ -30,31 +30,6 @@
 		data: giveinfo()
 	});
 	console.log('connected');
-/*
-	document.querySelector('button#blackout').onclick = function(e) {
-		if (preview.classList.contains('blackout')) {
-			primus.write({type:'overlay',data:null});
-		} else {
-			primus.write({type:'overlay',data:'blackout'});
-		}
-	};
-	document.querySelector('button#whiteout').onclick = function(e) {
-		if (preview.classList.contains('whiteout')) {
-			primus.write({type:'overlay',data:null});
-		} else {
-			primus.write({type:'overlay',data:'whiteout'});
-		}
-	};
-	document.querySelector('button#blankout').onclick = function(e) {
-		if (preview.classList.contains('blankout')) {
-			primus.write({type:'overlay',data:null});
-		} else {
-			primus.write({type:'overlay',data:'blankout'});
-		}
-	};
-	document.querySelector('button#reload').onclick = function(e) {
-		primus.write({type:'reload'});
-	};*/
 
 	primus.on('data', function(msg) {
 		if (msg == 'giveinfo') {
@@ -64,33 +39,41 @@
 				data: giveinfo()
 			});
 		} else if (typeof msg === 'object') {
+			var d = msg.data;
+			console.log(msg);
 			switch (msg.type) {
 				case 'stage cmd':
-					if (msg.data.width)	stage.width = msg.data.width;
-					if (msg.data.height)	stage.height = msg.data.height;
-					if (msg.data.overlay) {
-						switch (msg.data.overlay) {
+					if (d.width)	stage.width = d.width;
+					if (d.height)	stage.height = d.height;
+					if (typeof d.overlay !== 'undefined') {
+						switch (d.overlay) {
 							case 'blackout':
 								preview.classList.remove('whiteout', 'blankout');
 								preview.classList.add('blackout');
+								break;
 							case 'whiteout':
 								preview.classList.remove('blackout', 'blankout');
 								preview.classList.add('whiteout');
+								break;
 							case 'blankout':
 								preview.classList.remove('blackout', 'whiteout');
 								preview.classList.add('blankout');
-							default:
+								break;
+							case null:
 								preview.classList.remove('blackout', 'whiteout', 'blankout');
+								break;
+							default:
+								console.warn('unknown overlay ['+d.overlay+']');
 						}
 					}
-					break;
-				case 'scene content':
-					stage.innerHTML = msg.data;
+					if (d.scene) {
+						stage.innerHTML = d.scene;
+					}
 					break;
 				case 'scene cmd':
 					break;
 				case 'gui settings':
-					console.log('rebuilding gui: '+gui.rebuild(msg.data));
+					console.log('rebuilding gui: '+gui.rebuild(d));
 					break;
 				default:
 					console.warn('unknown msg '+JSON.stringify(msg));

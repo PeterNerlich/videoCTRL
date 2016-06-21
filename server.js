@@ -9,43 +9,39 @@ var settings = {
 		height: 300,
 		overlay: null,
 		scene: 0,
-		scenes: [
-			'001'
-		]
+		scenes: []
 	},
 	gui: {
 		children: [
+			{
+				type: 'button',
+				title: 'Reload GUI',
+				signal: 'gui reload'
+			},
 			{
 				type: 'group',
 				title: 'stage nav',
 				class: 'bordered labeled',
 				children: [
 					{
-						type: 'group',
-						title: 'overlay',
-						class: 'horizontal',
-						children: [
-							{
-								type: 'button',
-								title: 'Blackout',
-								signal: 'blackout'
-							},
-							{
-								type: 'button',
-								title: 'Whiteout',
-								signal: 'whiteout'
-							},
-							{
-								type: 'button',
-								title: 'Blankout',
-								signal: 'blankout'
-							}
-						]
+						type: 'button',
+						title: 'CLEAR',
+						signal: 'clear'
 					},
 					{
 						type: 'button',
-						title: 'Reload Scene',
-						signal: 'reload'
+						title: 'Blackout',
+						signal: 'blackout'
+					},
+					{
+						type: 'button',
+						title: 'Whiteout',
+						signal: 'whiteout'
+					},
+					{
+						type: 'button',
+						title: 'Blankout',
+						signal: 'blankout'
 					}
 				]
 			},
@@ -55,27 +51,40 @@ var settings = {
 				class: 'bordered labeled horizontal',
 				children: [
 					{
-						type: 'button',
-						title: '←',
-						signal: 'scene-prev',
-						class: null
+						type: 'group',
+						title: 'overlay',
+						class: 'horizontal',
+						children: [
+							{
+								type: 'button',
+								title: '←',
+								signal: 'scene prev',
+								class: null
+							},
+							{
+								type: 'list',
+								signal: 'scene select',
+								class: null,
+								options: function(){return settings.stage.scenes;},
+								current: function(){return settings.stage.scene;}
+							},
+							{
+								type: 'button',
+								title: '→',
+								signal: 'scene next',
+								class: null
+							}
+						]
 					},
 					{
-						type: 'list',
-						signal: 'scene-select',
-						class: null,
-						options: [
-							'001',
-							'002',
-							'003'
-						],
-						current: 0
+						type: 'button',
+						title: 'Reload Scene',
+						signal: 'scene reload'
 					},
 					{
 						type: 'button',
-						title: '→',
-						signal: 'scene-next',
-						class: null
+						title: 'Rescan',
+						signal: 'scene scan'
 					}
 				]
 			}
@@ -83,7 +92,6 @@ var settings = {
 	},
 	devices: []
 };
-
 
 var devices = {
 	add: function(spark) {
@@ -133,7 +141,7 @@ var server = http.createServer(function(req, res) {
 		}
 		fs.readFile(path.join(__dirname,'admin',file), function(err, data) {
 			if (err) {
-				console.log('err: '+JSON.stringify(err));
+				console.error('ERR: '+JSON.stringify(err));
 				res.end('error piping: 404');
 			} else {
 				res.end(data);
@@ -142,7 +150,7 @@ var server = http.createServer(function(req, res) {
 	} else if ((file = /^\/scenes\/stage.css$/.exec(req.url)) !== null) {
 		fs.readFile(path.join(__dirname,'scenes','stage.css'), function(err, data) {
 			if (err) {
-				console.log('err: '+JSON.stringify(err));
+				console.error('ERR: '+JSON.stringify(err));
 				res.end('error piping: 404');
 			} else {
 				res.end(data);
@@ -151,7 +159,7 @@ var server = http.createServer(function(req, res) {
 	} else {
 		fs.readFile(path.join(__dirname,'scenes','landing.html'), function(err, data) {
 			if (err) {
-				console.log('err: '+JSON.stringify(err));
+				console.error('ERR: '+JSON.stringify(err));
 				res.end('error piping: 404');
 			} else {
 				res.end(data);
@@ -160,8 +168,13 @@ var server = http.createServer(function(req, res) {
 	}
 });
 
-server.listen(8000, function() {
-	console.log('server listening on port 8000');
+scenescan(function(err, scenes){
+	if (err) {
+		return console.error('ERR: scene scan '+err);
+	}
+	server.listen(8000, function() {
+		console.log('server listening on port 8000');
+	});
 });
 
 var primus = new Primus(server, {/* options */});
@@ -170,23 +183,31 @@ primus.on('connection', function (spark) {
 	console.log('connected: ['+spark.id+']');
 	devices.add(spark);
 
-//	send({type:'overlay',data:overlay}, spark);
-//	sendScene(spark);
-
 	spark.on('data', function(msg) {
 		var device = devices.get(spark.id);
 		if (device.type === null) {
 			if (msg == 'admin' || msg == 'display') {
 				device.type = msg;
 				if (device.type == 'admin') {
-					console.log('sending gui settings: '+device.spark.write({
+					device.spark.write({
 						type: 'gui settings',
-						data: settings.gui
-					}));
+						data: resolvegui(clone(settings.gui))
+					});
 				}
+				getStage(function(err, file){
+					device.spark.write({
+						type: 'stage cmd',
+						data: {
+							scene: file,
+							width: settings.stage.width,
+							height: settings.stage.height,
+							overlay: settings.stage.overlay
+						}
+					});
+				});
 			} else {
 				spark.write('giveinfo');
-				console.log('NULL spark ['+spark.id+']: '+JSON.stringify(msg));
+				console.warn('NULL spark ['+spark.id+']: '+JSON.stringify(msg));
 			}
 		} else {
 			if (typeof msg === 'object') {
@@ -195,66 +216,259 @@ primus.on('connection', function (spark) {
 						device.info = msg.data;
 						break;
 					case 'gui cmd':
+						switch (msg.data.signal) {
+							case 'gui reload':
+								device.spark.write({
+									type: 'gui settings',
+									data: resolvegui(clone(settings.gui))
+								});
+								break;
+							case 'scene reload':
+								getStage(function(err, file){
+									devices.broadcast({
+										type: 'stage cmd',
+										data: {
+											scene: file
+										}
+									});
+								});
+								break;
+							case 'scene scan':
+								scenescan(function(err, scenes) {
+									if (err) {
+										console.error('ERR: scenescan '+err);
+									} else {
+										devices.broadcast({
+											type: 'gui settings',
+											data: resolvegui(clone(settings.gui))
+										});
+									}
+								});
+								break;
+							case 'scene select':
+								var scene = settings.stage.scenes.indexOf(msg.data.value);
+								if (scene >= 0) {
+									getStage(function(err, file){
+										devices.broadcast({
+											type: 'stage cmd',
+											data: {
+												scene: file
+											}
+										});
+									}, scene);
+									settings.stage.scene = scene;
+									devices.broadcast({
+										type: 'gui settings',
+										data: resolvegui(clone(settings.gui))
+									});
+								}
+								break;
+							case 'scene prev':
+								var scene = (settings.stage.scene > 0) ?
+									settings.stage.scene - 1 :
+									settings.stage.scenes.length - 1;
+								getStage(function(err, file){
+									devices.broadcast({
+										type: 'stage cmd',
+										data: {
+											scene: file
+										}
+									});
+								}, scene);
+								settings.stage.scene = scene;
+								devices.broadcast({
+									type: 'gui settings',
+									data: resolvegui(clone(settings.gui))
+								});
+								break;
+							case 'scene next':
+								var scene = (settings.stage.scene < settings.stage.scenes.length - 1) ?
+									settings.stage.scene + 1 :
+									0;
+								getStage(function(err, file){
+									devices.broadcast({
+										type: 'stage cmd',
+										data: {
+											scene: file
+										}
+									});
+								}, scene);
+								settings.stage.scene = scene;
+								devices.broadcast({
+									type: 'gui settings',
+									data: resolvegui(clone(settings.gui))
+								});
+								break;
+							case 'clear':
+								devices.broadcast({
+									type: 'stage cmd',
+									data: {
+										overlay: null
+									}
+								});
+								break;
+							case 'blackout':
+								devices.broadcast({
+									type: 'stage cmd',
+									data: {
+										overlay: 'blackout'
+									}
+								});
+								break;
+							case 'whiteout':
+								devices.broadcast({
+									type: 'stage cmd',
+									data: {
+										overlay: 'whiteout'
+									}
+								});
+								break;
+							case 'blankout':
+								devices.broadcast({
+									type: 'stage cmd',
+									data: {
+										overlay: 'blankout'
+									}
+								});
+								break;
+							default:
+								console.warn('ignoring signal '+JSON.stringify(msg.data));
+								device.spark.write({
+									type: 'gui settings',
+									data: resolvegui(clone(settings.gui))
+								});
+								return;
+						}
 						break;
 					default:
-						console.log('ignoring msg '+JSON.stringify(msg));
+						console.warn('ignoring msg '+JSON.stringify(msg));
 				}
 			} else {
-				console.log('ignoring msg '+JSON.stringify(msg));
+				console.warn('ignoring msg '+JSON.stringify(msg));
 			}
 		}
-
-
-return;
-/*		if (typeof msg === 'object') {
-			if (msg.type == 'update') {
-				if (msg.data) {
-					scene = msg.data.scene;
-					stage = msg.data.stage;
-				}
-
-				broadcastScene(data);
-			} else if (msg.type == 'reload') {
-				broadcastScene();
-			} else if (msg.type == 'overlay') {
-				if (msg.data == 'blackout' ||
-					msg.data == 'whiteout' ||
-					msg.data == 'blankout' ||
-					msg.data == null
-				) {
-					overlay = msg.data;
-					broadcast(msg);
-				}
-			}
-		} else {
-			console.log('ignoring msg '+JSON.stringify(msg));
-		}*/
 	});
 });
 
-primus.on('disconnection', function (spark) {
+primus.on('disconnection', function(spark) {
 	console.log('disconnected: ['+spark.id+']');
 	devices.remove(spark.id);
 });
 
 
-function broadcastScene(data) {
-	var data = data || {scene: scene, stage: stage};
-	console.log('broadcasting scene ['+data.scene+']  ('+devices.list.length+')');
-	devices.list.forEach(function(e,i) {
-		sendScene(e, data);
-	});
-	return true;
+function resolvegui(tree) {
+	if (typeof tree !== 'object') {
+		return false;
+	}
+
+	for (var key in tree) {
+		if (typeof tree[key] === 'function') {
+			tree[key] = tree[key]();
+		} else if (typeof tree[key] === 'object') {
+			tree[key] = resolvegui(tree[key]);
+		}
+	}
+	return tree;
 }
 
-function sendScene(spark, data) {
-	var data = data || {scene: scene, stage: stage};
-	fs.readFile(path.join(__dirname,'scenes',data.scene,'scene.html'), 'utf-8', function(err, file) {
+function scenescan(callback, writetosettings) {
+	var callback = callback || function(){};
+	var writetosettings = writetosettings || true;
+
+	var scene = settings.stage.scenes[settings.stage.scene];
+	var scenes = [];
+	fs.readdir(path.join(__dirname,'scenes'), function(err, list) {
 		if (err) {
-			console.log('err: '+JSON.stringify(err));
+			callback(err);
+			return false;
+		}
+		var pending = list.length;
+		if (!pending) {
+			if (writetosettings) {
+				settings.stage.scenes = scenes;
+				settings.stage.scene = (settings.stage.scenes.indexOf(scene) >= 0) ? settings.stage.scenes.indexOf(scene) : 0;
+			}
+			callback(null, scenes);
+		}
+		list.forEach(function(dir) {
+			fs.stat(path.resolve(path.join(__dirname,'scenes'), dir), function(err, stat) {
+				if (err) {
+					callback(err);
+					return false;
+				} else if (stat.isDirectory()) {
+					fs.stat(path.resolve(path.join(__dirname,'scenes', dir), 'scene.html'), function(err, stat) {
+						if (err) {
+							callback(err);
+							return false;
+						} else if (stat.isFile()) {
+							scenes.push(dir);
+							if (!--pending) {
+								if (writetosettings) {
+									settings.stage.scenes = scenes;
+									settings.stage.scene = (settings.stage.scenes.indexOf(scene) >= 0) ? settings.stage.scenes.indexOf(scene) : 0;
+								}
+								callback(null, scenes);
+							}
+						} else {
+							if (!--pending) {
+								if (writetosettings) {
+									settings.stage.scenes = scenes;
+									settings.stage.scene = (settings.stage.scenes.indexOf(scene) >= 0) ? settings.stage.scenes.indexOf(scene) : 0;
+								}
+								callback(null, scenes);
+							}
+						}
+					});
+				} else {
+					if (!--pending) {
+						if (writetosettings) {
+							settings.stage.scenes = scenes;
+							settings.stage.scene = (settings.stage.scenes.indexOf(scene) >= 0) ? settings.stage.scenes.indexOf(scene) : 0;
+						}
+						callback(null, scenes);
+					}
+				}
+			});
+		});
+	});
+}
+
+function getStage(callback, scene) {
+	switch (typeof scene) {
+		case 'string':
+			break;
+		case 'number':
+			scene = settings.stage.scenes[scene];
+			break;
+		default:
+			scene = settings.stage.scenes[settings.stage.scene];
+	}
+	fs.stat(path.resolve(path.join(__dirname,'scenes'),scene), function(err, stat) {
+		if (err) {
+			callback(err);
+			return false;
+		} else if (stat.isDirectory()) {
+			fs.stat(path.resolve(path.join(__dirname,'scenes', scene), 'scene.html'), function(err, stat) {
+				if (err) {
+					callback(err);
+					return false;
+				} else if (stat.isFile()) {
+					fs.readFile(path.resolve(__dirname,'scenes',scene,'scene.html'), 'utf-8', function(err, file) {
+						if (err) {
+							console.error('ERR: '+JSON.stringify(err));
+							callback(err);
+						} else {
+							callback(null,file);
+						}
+					});
+				} else {
+					callback(false);
+					return false;
+				}
+			});
 		} else {
-			console.log(JSON.stringify(file));
-			spark.write({type: 'scene', data: {scene: file, stage: data.stage}});
+			callback(false);
+			return false;
 		}
 	});
 }
@@ -264,4 +478,38 @@ function send(msg, spark) {
 		return false;
 	}
 	spark.write(msg);
+}
+
+
+function clone(obj) {
+	var copy;
+
+	// Handle the 3 simple types, and null or undefined
+	if (null == obj || "object" != typeof obj) return obj;
+
+	// Handle Date
+	if (obj instanceof Date) {
+		copy = new Date();
+		copy.setTime(obj.getTime());
+		return copy;
+	}
+
+	// Handle Array
+	if (obj instanceof Array) {
+		copy = [];
+		for (var i = 0; i < obj.length; i++) {
+			copy[i] = clone(obj[i]);
+		}
+		return copy;
+	}
+
+	// Handle Object
+	if (obj instanceof Object) {
+		copy = {};
+		for (var attr in obj) {
+			if (obj.hasOwnProperty(attr)) copy[attr] = clone(obj[attr]);
+		}
+		return copy;
+	}
+	throw new Error("Unable to copy obj! Its type isn't supported.");
 }
