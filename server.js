@@ -9,89 +9,14 @@ var settings = {
 		height: 300,
 		overlay: null,
 		scene: 0,
-		scenes: []
+		scenes: [],
+		bg: 0,
+		bgs: []
 	},
-	gui: {
-		children: [
-			{
-				type: 'button',
-				title: 'Reload GUI',
-				signal: 'gui reload'
-			},
-			{
-				type: 'group',
-				title: 'stage nav',
-				class: 'bordered labeled',
-				children: [
-					{
-						type: 'button',
-						title: 'CLEAR',
-						signal: 'clear'
-					},
-					{
-						type: 'button',
-						title: 'Blackout',
-						signal: 'blackout'
-					},
-					{
-						type: 'button',
-						title: 'Whiteout',
-						signal: 'whiteout'
-					},
-					{
-						type: 'button',
-						title: 'Blankout',
-						signal: 'blankout'
-					}
-				]
-			},
-			{
-				type: 'group',
-				title: 'scene nav',
-				class: 'bordered labeled horizontal',
-				children: [
-					{
-						type: 'group',
-						title: 'overlay',
-						class: 'horizontal',
-						children: [
-							{
-								type: 'button',
-								title: '←',
-								signal: 'scene prev',
-								class: null
-							},
-							{
-								type: 'list',
-								signal: 'scene select',
-								class: null,
-								options: function(){return settings.stage.scenes;},
-								current: function(){return settings.stage.scene;}
-							},
-							{
-								type: 'button',
-								title: '→',
-								signal: 'scene next',
-								class: null
-							}
-						]
-					},
-					{
-						type: 'button',
-						title: 'Reload Scene',
-						signal: 'scene reload'
-					},
-					{
-						type: 'button',
-						title: 'Rescan',
-						signal: 'scene scan'
-					}
-				]
-			}
-		]
-	},
+	gui: require('./admin/defaultgui.js'),
 	devices: []
 };
+//settings.gui = new require('./admin/defaultgui.js')(settings);
 
 var devices = {
 	add: function(spark) {
@@ -147,6 +72,16 @@ var server = http.createServer(function(req, res) {
 				res.end(data);
 			}
 		});
+	} else if ((file = /^\/bgs(\/|\/.+)?$/.exec(req.url)) !== null) {
+		file = file[1] || '/';
+		fs.readFile(path.join(__dirname,'bgs',file), function(err, data) {
+			if (err) {
+				console.error('ERR: '+JSON.stringify(err));
+				res.end('error piping: 404');
+			} else {
+				res.end(data);
+			}
+		});
 	} else if ((file = /^\/scenes\/stage.css$/.exec(req.url)) !== null) {
 		fs.readFile(path.join(__dirname,'scenes','stage.css'), function(err, data) {
 			if (err) {
@@ -175,6 +110,7 @@ scenescan(function(err, scenes){
 	server.listen(8000, function() {
 		console.log('server listening on port 8000');
 	});
+	bgscan();
 });
 
 var primus = new Primus(server, {/* options */});
@@ -191,10 +127,10 @@ primus.on('connection', function (spark) {
 				if (device.type == 'admin') {
 					device.spark.write({
 						type: 'gui settings',
-						data: resolvegui(clone(settings.gui))
+						data: resolvegui(new settings.gui(settings.stage))
 					});
 				}
-				getStage(function(err, file){
+				getScene(function(err, file){
 					device.spark.write({
 						type: 'stage cmd',
 						data: {
@@ -218,13 +154,14 @@ primus.on('connection', function (spark) {
 					case 'gui cmd':
 						switch (msg.data.signal) {
 							case 'gui reload':
+								settings.gui = require('./admin/defaultgui.js');
 								device.spark.write({
 									type: 'gui settings',
-									data: resolvegui(clone(settings.gui))
+									data: resolvegui(new settings.gui(settings.stage))
 								});
 								break;
 							case 'scene reload':
-								getStage(function(err, file){
+								getScene(function(err, file){
 									devices.broadcast({
 										type: 'stage cmd',
 										data: {
@@ -240,7 +177,7 @@ primus.on('connection', function (spark) {
 									} else {
 										devices.broadcast({
 											type: 'gui settings',
-											data: resolvegui(clone(settings.gui))
+											data: resolvegui(new settings.gui(settings.stage))
 										});
 									}
 								});
@@ -248,7 +185,7 @@ primus.on('connection', function (spark) {
 							case 'scene select':
 								var scene = settings.stage.scenes.indexOf(msg.data.value);
 								if (scene >= 0) {
-									getStage(function(err, file){
+									getScene(function(err, file){
 										devices.broadcast({
 											type: 'stage cmd',
 											data: {
@@ -259,7 +196,7 @@ primus.on('connection', function (spark) {
 									settings.stage.scene = scene;
 									devices.broadcast({
 										type: 'gui settings',
-										data: resolvegui(clone(settings.gui))
+										data: resolvegui(new settings.gui(settings.stage))
 									});
 								}
 								break;
@@ -267,7 +204,7 @@ primus.on('connection', function (spark) {
 								var scene = (settings.stage.scene > 0) ?
 									settings.stage.scene - 1 :
 									settings.stage.scenes.length - 1;
-								getStage(function(err, file){
+								getScene(function(err, file){
 									devices.broadcast({
 										type: 'stage cmd',
 										data: {
@@ -278,14 +215,14 @@ primus.on('connection', function (spark) {
 								settings.stage.scene = scene;
 								devices.broadcast({
 									type: 'gui settings',
-									data: resolvegui(clone(settings.gui))
+									data: resolvegui(new settings.gui(settings.stage))
 								});
 								break;
 							case 'scene next':
 								var scene = (settings.stage.scene < settings.stage.scenes.length - 1) ?
 									settings.stage.scene + 1 :
 									0;
-								getStage(function(err, file){
+								getScene(function(err, file){
 									devices.broadcast({
 										type: 'stage cmd',
 										data: {
@@ -296,7 +233,7 @@ primus.on('connection', function (spark) {
 								settings.stage.scene = scene;
 								devices.broadcast({
 									type: 'gui settings',
-									data: resolvegui(clone(settings.gui))
+									data: resolvegui(new settings.gui(settings.stage))
 								});
 								break;
 							case 'clear':
@@ -331,11 +268,50 @@ primus.on('connection', function (spark) {
 									}
 								});
 								break;
+							case 'stage bg scan':
+								bgscan(function(err, scenes) {
+									if (err) {
+										console.error('ERR: bgscan '+err);
+									} else {
+										devices.broadcast({
+											type: 'gui settings',
+											data: resolvegui(new settings.gui(settings.stage))
+										});
+									}
+								});
+								break;
+							case 'stage bg select':
+								var bg = settings.stage.bgs.indexOf(msg.data.value);
+								if (bg >= 0) {
+									/*getBg(function(err, file){
+										if (err) {
+											return console.error('ERR: getBg '+err);
+										}
+										devices.broadcast({
+											type: 'stage cmd',
+											data: {
+												bg: file
+											}
+										});
+									}, bg);*/
+									settings.stage.bg = bg;
+									devices.broadcast({
+										type: 'stage cmd',
+										data: {
+											bg: 'url(../bgs/'+settings.stage.bgs[bg]+')'
+										}
+									});
+									devices.broadcast({
+										type: 'gui settings',
+										data: resolvegui(new settings.gui(settings.stage))
+									});
+								}
+								break;
 							default:
 								console.warn('ignoring signal '+JSON.stringify(msg.data));
 								device.spark.write({
 									type: 'gui settings',
-									data: resolvegui(clone(settings.gui))
+									data: resolvegui(new settings.gui(settings.stage))
 								});
 								return;
 						}
@@ -396,7 +372,7 @@ function scenescan(callback, writetosettings) {
 					callback(err);
 					return false;
 				} else if (stat.isDirectory()) {
-					fs.stat(path.resolve(path.join(__dirname,'scenes', dir), 'scene.html'), function(err, stat) {
+					fs.stat(path.resolve(path.join(__dirname,'scenes', dir), 'info.json'), function(err, stat) {
 						if (err) {
 							callback(err);
 							return false;
@@ -433,7 +409,54 @@ function scenescan(callback, writetosettings) {
 	});
 }
 
-function getStage(callback, scene) {
+function bgscan(callback, writetosettings) {
+	var callback = callback || function(){};
+	var writetosettings = writetosettings || true;
+
+	var bg = settings.stage.bgs[settings.stage.bg];
+	var bgs = [];
+	fs.readdir(path.join(__dirname,'bgs'), function(err, list) {
+		if (err) {
+			callback(err);
+			return false;
+		}
+		var pending = list.length;
+		if (!pending) {
+			if (writetosettings) {
+				settings.stage.bgs = bgs;
+				settings.stage.bg = (settings.stage.bgs.indexOf(bg) >= 0) ? settings.stage.bgs.indexOf(bg) : 0;
+			}
+			callback(null, bgs);
+		}
+		list.forEach(function(file) {
+			fs.stat(path.resolve(path.join(__dirname,'bgs'), file), function(err, stat) {
+				if (err) {
+					callback(err);
+					return false;
+				} else if (stat.isFile()) {
+					bgs.push(file);
+					if (!--pending) {
+						if (writetosettings) {
+							settings.stage.bgs = bgs;
+							settings.stage.bg = (settings.stage.bgs.indexOf(bg) >= 0) ? settings.stage.bgs.indexOf(bg) : 0;
+						}
+						callback(null, bgs);
+					}
+				} else {
+					if (!--pending) {
+						if (writetosettings) {
+							settings.stage.bgs = bgs;
+							settings.stage.bg = (settings.stage.bgs.indexOf(bg) >= 0) ? settings.stage.bgs.indexOf(bg) : 0;
+						}
+						callback(null, bgs);
+					}
+				}
+			});
+		});
+	});
+}
+
+function getScene(callback, scene) {
 	switch (typeof scene) {
 		case 'string':
 			break;
@@ -464,6 +487,36 @@ function getStage(callback, scene) {
 				} else {
 					callback(false);
 					return false;
+				}
+			});
+		} else {
+			callback(false);
+			return false;
+		}
+	});
+}
+
+function getBg(callback, bg) {
+	switch (typeof bg) {
+		case 'string':
+			break;
+		case 'number':
+			bg = settings.stage.bgs[bg];
+			break;
+		default:
+			bg = settings.stage.bgs[settings.stage.bg];
+	}
+	fs.stat(path.resolve(path.join(__dirname,'bgs'),bg), function(err, stat) {
+		if (err) {
+			callback(err);
+			return false;
+		} else if (stat.isFile()) {
+			fs.readFile(path.resolve(__dirname,'bgs',bg), 'utf-8', function(err, file) {
+				if (err) {
+					console.error('ERR: '+JSON.stringify(err));
+					callback(err);
+				} else {
+					callback(null, new Buffer(file).toString('base64'));
 				}
 			});
 		} else {
