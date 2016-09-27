@@ -10,15 +10,135 @@
 <div id="stage"></div>
 
 
+<script src="./res/requireScene.js"></script>
+<script src="../res/gui.js"></script>
 <script src="./primus/primus.js"></script>
 <script>
+	var body = document.body;
 	var background = document.querySelector('#background');
 	var stage = document.querySelector('#stage');
 
 	var primus = Primus.connect('/primus', {});
 	primus.write('display');
+	primus.write({
+		type: 'info',
+		data: giveinfo()
+	});
 	console.log('connected');
 
+	var gui = new Gui();
+
+	var sceneloader = new SceneLoader();
+	var activeScene = null;
+	var prevScene = null;
+
+	primus.on('data', function(msg) {
+		if (msg == 'giveinfo') {
+			primus.write('display');
+			primus.write({
+				type: 'info',
+				data: giveinfo()
+			});
+		} else if (typeof msg === 'object') {
+			var d = msg.data;
+			switch (msg.type) {
+				case 'stage cmd':
+					if (d.width)	stage.width = d.width;
+					if (d.height)	stage.height = d.height;
+					if (typeof d.overlay !== 'undefined') {
+						switch (d.overlay) {
+							case 'blackout':
+								body.classList.remove('whiteout', 'blankout');
+								body.classList.add('blackout');
+								break;
+							case 'whiteout':
+								body.classList.remove('blackout', 'blankout');
+								body.classList.add('whiteout');
+								break;
+							case 'blankout':
+								body.classList.remove('blackout', 'whiteout');
+								body.classList.add('blankout');
+								break;
+							case null:
+								body.classList.remove('blackout', 'whiteout', 'blankout');
+								break;
+							default:
+								console.warn('unknown overlay', d.overlay);
+						}
+					}
+					if (d.loadScene) {
+						sceneloader.load(d.loadScene);
+					}
+					if (d.unloadScene) {
+						sceneloader.unload(d.unloadScene);
+					}
+					if (d.reloadScene) {
+						sceneloader.reload(d.reloadScene);
+					}
+					if (d.showScene) {
+						sceneloader.get(d.showScene).then(function(value){
+							if (typeof activeScene === 'object' && activeScene !== null) {
+								setTimeout(activeScene.exp.hide || function(){}, 1);
+							}
+							prevScene = activeScene;
+							activeScene = {name: d.showScene, exp: value};
+							if (typeof activeScene === 'object' && activeScene !== null) {
+								setTimeout(activeScene.exp.show || function(){}, 1);
+							}
+							stage.innerHTML = '';
+							if (Object.prototype.hasOwnProperty.call(value, 'dom')) {
+								for (var i = 0; i < value.dom.length; i++) {
+									stage.appendChild(value.dom[i]);
+								}
+							}
+						}, function(err) {
+							console.error(err);
+						});
+					}
+					if (d.bg) {
+						background.style.backgroundImage = d.bg || '#000';
+					}
+					break;
+				case 'scene cmd':
+					sceneloader.get(msg.scene).then(function(value) {
+						return value.cmd(d.signal, d.value);
+					}, function(err) {
+						console.error(err);
+					});
+					break;
+				case 'gui settings':
+					// ignore
+					break;
+				default:
+					console.warn('unknown msg', msg);
+					break;
+			}
+		} else {
+			console.warn('unknown msg', msg);
+		}
+	});
+
+	function giveinfo() {
+		return {
+			width: window.innerWidth,
+			height: window.innerHeight,
+			screen: {
+				width: window.screen.width,
+				height: window.screen.height,
+				availWidth: window.screen.availWidth,
+				availHeight: window.screen.availHeight,
+				availLeft: window.screen.availLeft,
+				availTop: window.screen.availTop,
+				colorDepth: window.screen.colorDepth,
+				pixelDepth: window.screen.pixelDepth,
+				orientation: {
+					angle: window.screen.orientation.angle,
+					type: window.screen.orientation.type
+				}
+			}
+		};
+	}
+/*
 	primus.on('data', function(msg) {
 		if (msg.type == 'scene') {
 			//var html = String.fromCharCode.apply(null, new Uint16Array(msg.data.scene.data));
@@ -44,7 +164,7 @@
 			console.warn('unknown msg '+JSON.stringify(msg));
 		}
 	});
-
+*/
 	window.onresize = function() {
 		var sw = document.body.offsetWidth / stage.offsetWidth;
 		var sh = document.body.offsetHeight / stage.offsetHeight;
@@ -52,6 +172,8 @@
 	};
 	window.onresize();
 </script>
+
+<div onclick="window.close()" style="position: fixed; top: 90%; left: 0; right: 90%; bottom: 0;"></div>
 
 </body>
 </html>

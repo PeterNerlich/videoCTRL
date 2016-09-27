@@ -3,7 +3,7 @@
 <head>
 	<title>Admin</title>
 	<link rel="stylesheet" href="../scenes/stage.css">
-	<link rel="stylesheet" href="interface.css">
+	<link rel="stylesheet" href="./interface.css">
 </head>
 <body>
 
@@ -15,13 +15,25 @@
 </div>
 
 
-<script src="../admin/gui.js"></script>
+<script src="../res/requireScene.js"></script>
+<script src="../res/gui.js"></script>
 <script src="../primus/primus.js"></script>
 <script>
 	var preview = document.querySelector('#preview');
 	var background = document.querySelector('#background');
 	var stage = document.querySelector('#stage');
-	var gui = new Gui('#gui');
+
+	var sceneloader = new SceneLoader();
+	var activeScene = null;
+	var prevScene = null;
+	var settingScene = null;
+	var scenes = [];
+
+	var gui = new Gui('#gui', settingScene, lSigHandler);
+
+	gui.scenerebuild = function(name) {
+		return gui.rebuild(null, {gui: sceneloader.getGui(name), name: name, scenes: scenes, index: (scenes.indexOf(name) == -1) ? 0 : scenes.indexOf(name)});
+	};
 
 	var primus = Primus.connect('/primus', {});
 	primus.write('admin');
@@ -40,7 +52,7 @@
 			});
 		} else if (typeof msg === 'object') {
 			var d = msg.data;
-			console.log(msg);
+			//console.log(msg);
 			switch (msg.type) {
 				case 'stage cmd':
 					if (d.width)	stage.width = d.width;
@@ -63,29 +75,91 @@
 								preview.classList.remove('blackout', 'whiteout', 'blankout');
 								break;
 							default:
-								console.warn('unknown overlay ['+d.overlay+']');
+								console.warn('unknown overlay ', d.overlay);
 						}
 					}
-					if (d.scene) {
-						stage.innerHTML = d.scene;
+					if (d.loadScene) {
+						sceneloader.load(d.loadScene);
+					}
+					if (d.unloadScene) {
+						sceneloader.unload(d.unloadScene);
+					}
+					if (d.reloadScene) {
+						sceneloader.reload(d.reloadScene);
+					}
+					if (d.showScene) {
+						sceneloader.get(d.showScene).then(function(value){
+							if (typeof activeScene === 'object' && activeScene !== null) {
+								setTimeout(activeScene.exp.hide || function(){}, 1);
+							}
+							prevScene = activeScene;
+							activeScene = {name: d.showScene, exp: value};
+							setTimeout(activeScene.exp.show || function(){}, 1);
+							stage.innerHTML = '';
+							if (Object.prototype.hasOwnProperty.call(value, 'dom')) {
+								for (var i = 0; i < value.dom.length; i++) {
+									stage.appendChild(value.dom[i]);
+								}
+							}
+							if (prevScene === null || settingScene === prevScene.name) {
+								/*settingScene = activeScene.name;
+								console.log('rebuilding gui:', gui.rebuild(null, {gui: sceneloader.getGui(settingScene), name: settingScene, scenes: scenes, index: (scenes.indexOf(settingScene) == -1) ? 0 : scenes.indexOf(settingScene)}));*/
+								lSigHandler({signal: 'scene settings select', value: activeScene.name});
+							}
+						}, function(err) {
+							console.error(err);
+						});
 					}
 					if (d.bg) {
-						background.style.backgroundImage = d.bg;
+						background.style.backgroundImage = d.bg || '#000';
 					}
 					break;
 				case 'scene cmd':
+					sceneloader.get(msg.scene).then(function(value) {
+						return value.cmd(d.signal, d.value);
+					}, function(err) {
+						console.error(err);
+					});
 					break;
 				case 'gui settings':
-					console.log('rebuilding gui: '+gui.rebuild(d));
+					if (Object.prototype.hasOwnProperty.call(msg, 'scenes')) {
+						scenes = msg.scenes;
+						if (settingScene === null || scenes.indexOf(settingScene) < 0) {
+							settingScene = (scenes.length < 1) ? null : ((activeScene !== null && scenes.indexOf(activeScene.name) >= 0) ? activeScene.name : scenes[0]);
+						}
+					} else {
+						console.log('no scenes');
+					}
+					console.log('rebuilding gui:', gui.rebuild(d, {gui: sceneloader.getGui(settingScene), name: settingScene, scenes: scenes, index: (scenes.indexOf(settingScene) == -1) ? 0 : scenes.indexOf(settingScene)}));
 					break;
 				default:
-					console.warn('unknown msg '+JSON.stringify(msg));
+					console.warn('unknown msg', msg);
 					break;
 			}
 		} else {
-			console.warn('unknown msg '+JSON.stringify(msg));
+			console.warn('unknown msg', msg);
 		}
 	});
+
+	function lSigHandler(sig) {
+		switch (sig.signal) {
+			case 'scene settings select':
+				if (scenes.indexOf(sig.value) >= 0) {
+					settingScene = sig.value;
+				} else if (settingScene === null || scenes.indexOf(settingScene) < 0) {
+					settingScene = (scenes.length < 1) ? null : ((activeScene !== null && scenes.indexOf(activeScene.name) >= 0) ? activeScene.name : scenes[0]);
+				}
+				console.log('rebuilding gui:', gui.rebuild(null, {gui: sceneloader.getGui(settingScene), name: settingScene, scenes: scenes, index: (scenes.indexOf(settingScene) == -1) ? 0 : scenes.indexOf(settingScene)}));
+				break;
+			default:
+				return sceneloader.get(settingScene, false, false).then(
+					function(value) {
+						return value.exports.cmd(sig);
+					},
+					function(reason) {}
+				);
+		}
+	}
 
 	function giveinfo() {
 		return {

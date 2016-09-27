@@ -16,6 +16,21 @@ html, body {
 	background-color: #000;
 	opacity: .9;
 	transition: opacity .1s;
+	overflow: hidden;
+
+	color: initial;
+	font: initial;
+	text-align: initial;
+	text-align-last: initial;
+	text-anchor: initial;
+	text-decoration: initial;
+	text-indent: initial;
+	text-orientation: initial;
+	text-overflow: initial;
+	text-rendering: optimizeSpeed;
+	text-shadow: initial;
+	text-transform: initial;
+	text-underline-position: initial;
 }
 #preview:hover, #preview:active {
 	opacity: .6;
@@ -132,6 +147,7 @@ br {
 
 [data-role="list"] {
 	height: 30px;
+	max-width: 50%;
 	font-size: 14px;
 	font-weight: bold;
 	color: #680;
