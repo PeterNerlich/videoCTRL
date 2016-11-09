@@ -100,7 +100,7 @@ var server = http.createServer(function(req, res) {
 		});
 	} else if ((file = /^\/scenes(\/|\/.+)?$/.exec(req.url)) !== null) {
 		file = file[1] || '/';
-		fs.readFile(path.join(__dirname,'scenes',file), function(err, data) {
+		fs.readFile(path.join(__dirname,'scenes',file.replace(/%20/g, ' ')), function(err, data) {
 			if (err) {
 				console.error('ERR: (http)', err);
 				res.end('error piping: 404');
