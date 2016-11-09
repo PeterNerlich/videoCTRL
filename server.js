@@ -171,7 +171,7 @@ primus.on('connection', function (spark) {
 						width: settings.stage.width,
 						height: settings.stage.height,
 						overlay: settings.stage.overlay,
-						bg: (settings.stage.bgs.length == 0) ? '#000' : 'url(../bgs/'+settings.stage.bgs[settings.stage.bg]+')'
+						bg: (settings.stage.bgs.length == 0) ? '#000' : 'url(\'../bgs/'+settings.stage.bgs[settings.stage.bg].replace(/ /g, '%20')+'\')'
 					}
 				});
 			} else {
@@ -359,7 +359,7 @@ primus.on('connection', function (spark) {
 									devices.broadcast({
 										type: 'stage cmd',
 										data: {
-											bg: (settings.stage.bgs.length == 0) ? '#000' :'url(../bgs/'+settings.stage.bgs[bg]+')'
+											bg: (settings.stage.bgs.length == 0) ? '#000' :'url(\'../bgs/'+settings.stage.bgs[bg].replace(/ /g, '%20')+'\')'
 										}
 									});
 									devices.broadcast({
