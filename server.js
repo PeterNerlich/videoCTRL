@@ -70,7 +70,7 @@ var server = http.createServer(function(req, res) {
 		if (file == '/') {
 			file = 'index.html';
 		}
-		fs.readFile(path.join(__dirname,'admin',file), function(err, data) {
+		fs.readFile(path.join(__dirname,'admin',file.replace(/%20/g, ' ')), function(err, data) {
 			if (err) {
 				console.error('ERR: (http)', err);
 				res.end('error piping: 404');
@@ -80,7 +80,7 @@ var server = http.createServer(function(req, res) {
 		});
 	} else if ((file = /^\/bgs(\/|\/.+)?$/.exec(req.url)) !== null) {
 		file = file[1] || '/';
-		fs.readFile(path.join(__dirname,'bgs',file), function(err, data) {
+		fs.readFile(path.join(__dirname,'bgs',file.replace(/%20/g, ' ')), function(err, data) {
 			if (err) {
 				console.error('ERR: (http)', err);
 				res.end('error piping: 404');
@@ -90,7 +90,7 @@ var server = http.createServer(function(req, res) {
 		});
 	} else if ((file = /^\/res(\/|\/.+)?$/.exec(req.url)) !== null) {
 		file = file[1] || '/';
-		fs.readFile(path.join(__dirname,'res',file), function(err, data) {
+		fs.readFile(path.join(__dirname,'res',file.replace(/%20/g, ' ')), function(err, data) {
 			if (err) {
 				console.error('ERR: (http)', err);
 				res.end('error piping: 404');
@@ -575,7 +575,7 @@ function getBg(callback, bg) {
 			callback(err);
 			return false;
 		} else if (stat.isFile()) {
-			fs.readFile(path.resolve(__dirname,'bgs',bg), 'utf-8', function(err, file) {
+			fs.readFile(path.resolve(__dirname,'bgs',bg.replace(/%20/g, ' ')), 'utf-8', function(err, file) {
 				if (err) {
 					console.error('ERR: getBg', err);
 					callback(err);
