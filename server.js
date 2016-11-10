@@ -70,7 +70,7 @@ var server = http.createServer(function(req, res) {
 		if (file == '/') {
 			file = 'index.html';
 		}
-		fs.readFile(path.join(__dirname,'admin',file.replace(/%20/g, ' ')), function(err, data) {
+		fs.readFile(path.join(__dirname,'admin',decodeURI(file)), function(err, data) {
 			if (err) {
 				console.error('ERR: (http)', err);
 				res.end('error piping: 404');
@@ -80,7 +80,7 @@ var server = http.createServer(function(req, res) {
 		});
 	} else if ((file = /^\/bgs(\/|\/.+)?$/.exec(req.url)) !== null) {
 		file = file[1] || '/';
-		fs.readFile(path.join(__dirname,'bgs',file.replace(/%20/g, ' ')), function(err, data) {
+		fs.readFile(path.join(__dirname,'bgs',decodeURI(file)), function(err, data) {
 			if (err) {
 				console.error('ERR: (http)', err);
 				res.end('error piping: 404');
@@ -90,7 +90,7 @@ var server = http.createServer(function(req, res) {
 		});
 	} else if ((file = /^\/res(\/|\/.+)?$/.exec(req.url)) !== null) {
 		file = file[1] || '/';
-		fs.readFile(path.join(__dirname,'res',file.replace(/%20/g, ' ')), function(err, data) {
+		fs.readFile(path.join(__dirname,'res',decodeURI(file)), function(err, data) {
 			if (err) {
 				console.error('ERR: (http)', err);
 				res.end('error piping: 404');
@@ -100,7 +100,7 @@ var server = http.createServer(function(req, res) {
 		});
 	} else if ((file = /^\/scenes(\/|\/.+)?$/.exec(req.url)) !== null) {
 		file = file[1] || '/';
-		fs.readFile(path.join(__dirname,'scenes',file.replace(/%20/g, ' ')), function(err, data) {
+		fs.readFile(path.join(__dirname,'scenes',decodeURI(file)), function(err, data) {
 			if (err) {
 				console.error('ERR: (http)', err);
 				res.end('error piping: 404');
@@ -134,7 +134,7 @@ scenescan(function(err, scenes) {
 			devices.broadcast({
 				type: 'stage cmd',
 				data: {
-					bg: (settings.stage.bgs.length == 0) ? '#000' :'url(../bgs/'+settings.stage.bgs[bg]+')'
+					bg: (settings.stage.bgs.length == 0) ? '#000' :'url(\'../bgs/'+encodeURI(settings.stage.bgs[bg])+')'
 				}
 			});
 			devices.broadcast({
@@ -171,7 +171,7 @@ primus.on('connection', function (spark) {
 						width: settings.stage.width,
 						height: settings.stage.height,
 						overlay: settings.stage.overlay,
-						bg: (settings.stage.bgs.length == 0) ? '#000' : 'url(\'../bgs/'+settings.stage.bgs[settings.stage.bg].replace(/ /g, '%20')+'\')'
+						bg: (settings.stage.bgs.length == 0) ? '#000' : 'url(\'../bgs/'+encodeURI(settings.stage.bgs[settings.stage.bg])+'\')'
 					}
 				});
 			} else {
@@ -359,7 +359,7 @@ primus.on('connection', function (spark) {
 									devices.broadcast({
 										type: 'stage cmd',
 										data: {
-											bg: (settings.stage.bgs.length == 0) ? '#000' :'url(\'../bgs/'+settings.stage.bgs[bg].replace(/ /g, '%20')+'\')'
+											bg: (settings.stage.bgs.length == 0) ? '#000' :'url(\'../bgs/'+encodeURI(settings.stage.bgs[bg])+'\')'
 										}
 									});
 									devices.broadcast({
@@ -575,7 +575,7 @@ function getBg(callback, bg) {
 			callback(err);
 			return false;
 		} else if (stat.isFile()) {
-			fs.readFile(path.resolve(__dirname,'bgs',bg.replace(/%20/g, ' ')), 'utf-8', function(err, file) {
+			fs.readFile(path.resolve(__dirname,'bgs',decodeURI(bg)), 'utf-8', function(err, file) {
 				if (err) {
 					console.error('ERR: getBg', err);
 					callback(err);
